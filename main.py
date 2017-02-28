@@ -32,23 +32,23 @@ def build_model(x_raw, y_raw, reuse=None, training=True):
         conv6_2 = conv_bn_relu(conv6_1, 2048, reuse=reuse, training=training, name='conv6_2')
 
         up1 = upconv_bn_relu(conv6_2, 1024, reuse=reuse, training=training, name='up1')
-        up1 = tf.concat([up1, conv5_2], axis=3)
+        up1 = tf.concat([up1, conv5_2], axis=3, name='concat1')
         conv7_1 = conv_bn_relu(up1, 1024, reuse=reuse, training=training, name='conv7_1')
 
         up2 = upconv_bn_relu(conv7_1, 512, reuse=reuse, training=training, name='up2')
-        up2 = tf.concat([up2, conv4_2], axis=3)
+        up2 = tf.concat([up2, conv4_2], axis=3, name='concat2')
         conv8_1 = conv_bn_relu(up2, 512, reuse=reuse, training=training, name='conv8_1')
 
         up3 = upconv_bn_relu(conv8_1, 256, reuse=reuse, training=training, name='up3')
-        up3 = tf.concat([up3, conv3_2], axis=3)
+        up3 = tf.concat([up3, conv3_2], axis=3, name='concat3')
         conv9_1 = conv_bn_relu(up3, 256, reuse=reuse, training=training, name='conv9_1')
 
         up4 = upconv_bn_relu(conv9_1, 128, reuse=reuse, training=training, name='up4')
-        up4 = tf.concat([up4, conv2_2], axis=3)
+        up4 = tf.concat([up4, conv2_2], axis=3, name='concat4')
         conv10_1 = conv_bn_relu(up4, 128, reuse=reuse, training=training, name='conv10_1')
 
         up5 = upconv_bn_relu(conv10_1, 64, reuse=reuse, training=training, name='up5')
-        up5 = tf.concat([up5, conv1_2], axis=3)
+        up5 = tf.concat([up5, conv1_2], axis=3, name='concat5')
         conv11_1 = conv_bn_relu(up5, 64, reuse=reuse, training=training, name='conv11_1')
 
         logits = tf.layers.conv2d(conv11_1, 20, 3, reuse=reuse, padding='same', name='logits')
@@ -76,15 +76,15 @@ logits_train, loss_train = build_model(x_raw, y_raw)
 logits_val, loss_val = build_model(x_raw, y_raw, reuse=True, training=False)
 
 trainable_vars = tf.trainable_variables()
+sum_hist = []
 for v in trainable_vars:
     print(v.name, v.get_shape())
-    tf.summary.histogram(v.name, v)
+    sum_hist.append(tf.summary.histogram(v.name, v))
 
-tf.summary.scalar('loss_train', loss_train)
-tf.summary.scalar('loss_val', loss_val)
+sum_hist = tf.summary.merge(sum_hist)
 
-tf.summary.merge_all()
-
+sum_loss_train = tf.summary.scalar('loss_train', loss_train)
+sum_loss_val = tf.summary.scalar('loss_val', loss_val)
 
 t0 = time.time()
 images_train = load_images('./data/train/images/*.jpg')
@@ -104,26 +104,44 @@ train_step = tf.train.AdamOptimizer(learning_rate=lr).minimize(loss_train, var_l
 lr_basic = 1e-4
 num_epoch = 10
 with tf.Session() as sess:
+    writer = tf.summary.FileWriter("./logs", sess.graph)
+
     init = tf.global_variables_initializer()
     sess.run(init)
 
+    total_count = 0
     t0 = time.time()
     for epoch in range(num_epoch):
-        for cnt, idx in enumerate(order):
-            img = images_train[idx]
-            lbl = labels_train[idx]
+        for k in range(len(images_train)):
+            idx_train = order[k]
+            img = images_train[idx_train]
+            lbl = labels_train[idx_train]
 
             if random.rand() > 0.5:
                 img = img[:, ::-1, :]
                 lbl = lbl[:, ::-1, :]
 
-            l_train, _ = sess.run([loss_train, train_step],
-                            feed_dict={x_raw: img, y_raw: lbl, lr: lr_basic / 2**epoch})
+            sess.run(train_step, feed_dict={x_raw: img, y_raw: lbl, lr: lr_basic / 2**epoch})
 
-            if cnt % 8 == 0:
+            total_count += 1
+            writer.add_summary(sess.run(sum_hist), total_count)
+
+            sum_ = sess.run(sum_loss_train, feed_dict={x_raw: img, y_raw: lbl})
+            writer.add_summary(sum_, total_count)
+
+            #
+            idx_val = random.randint(0, len(images_val) - 1)
+            img = images_val[idx_val]
+            lbl = labels_val[idx_val]
+
+            sum_ = sess.run(sum_loss_val, feed_dict={x_raw: img, y_raw: lbl})
+            writer.add_summary(sum_, total_count)
+
+            if k % 8 == 0:
+                l_train = sess.run(loss_train, feed_dict={x_raw: img, y_raw: lbl})
                 m, s = divmod(time.time() - t0, 60)
                 h, m = divmod(m, 60)
                 print('Epoch: [%4d/%4d] [%4d/%4d], Time: [%02d:%02d:%02d], loss: %.4f'
-                        % (epoch, num_epoch, cnt, len(images_train), h, m, s, l_train))
+                        % (epoch, num_epoch, k, len(images_train), h, m, s, l_train))
 
         random.shuffle(order)
