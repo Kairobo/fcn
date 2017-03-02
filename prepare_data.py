@@ -4,8 +4,8 @@ from scipy.misc import imread, imsave
 from numpy import *
 from util import colors
 
-voc_dir = '/home/myyu/Downloads/VOCdevkit/VOC2012'
-set_ = sys.argv[1] # either being 'train' or 'val'
+voc_dir = sys.argv[1] # path/to/VOC2012
+set_ = sys.argv[2] # either being 'train' or 'val'
 
 if not os.path.isdir('./data/' + set_ + '/labels'):
     os.makedirs('./data/' + set_ + '/labels')
