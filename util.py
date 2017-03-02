@@ -98,7 +98,7 @@ def build_model(x, y, reuse=None, training=True):
         logits = tf.layers.conv2d_transpose(conv11_1, 20, 4, 2,
                                 reuse=reuse, padding='same', name='logits')
 
-        labels = tf.one_hot(y, depth=20, axis=-1, name='one_hot')
+        labels = tf.one_hot(y, depth=20, axis=-1)
 
         loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
                                 logits=logits, labels=labels))

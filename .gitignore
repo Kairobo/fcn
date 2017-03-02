@@ -1,7 +1,7 @@
 __pycache__
 *.pyc
-
-data/train
-data/val
+checkpoint/*
+data/train/*
+data/val/*
 *test*
 *tfevents*
