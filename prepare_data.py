@@ -41,10 +41,3 @@ with open(voc_dir + '/ImageSets/Segmentation/' + set_ + '.txt') as f:
         data[:lbl.shape[0], :lbl.shape[1]] = temp
 
         imsave('./data/' + set_ + '/labels/' + fn + '.png', data)
-
-
-if not os.path.isdir('./logs'):
-    os.makedirs('./logs')
-
-if not os.path.isdir('./checkpoint'):
-    os.makedirs('./checkpoint')

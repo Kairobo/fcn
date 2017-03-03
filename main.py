@@ -7,7 +7,7 @@ tf.app.flags.DEFINE_integer('batch_size', 8, 'Number of images in each batch')
 tf.app.flags.DEFINE_integer('num_epoch', 50, 'Total number of epochs to run for training')
 tf.app.flags.DEFINE_boolean('training', True, 'If true, train the model; otherwise evaluate the existing model')
 tf.app.flags.DEFINE_float('basic_learning_rate', 1e-4, 'Initial learning rate')
-tf.app.flags.DEFINE_float('learning_rate_decay_ratio', 0.5, 'Ratio for decaying the learning rate after every epoch')
+tf.app.flags.DEFINE_float('learning_rate_decay_ratio', 0.8, 'Ratio for decaying the learning rate after every epoch')
 tf.app.flags.DEFINE_string('gpu', '0', 'GPU to be used')
 
 config = tf.app.flags.FLAGS
