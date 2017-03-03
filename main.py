@@ -17,7 +17,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = config.gpu
 x = tf.placeholder(tf.float32, shape=[None, 512, 512, 3], name='x')
 y = tf.placeholder(tf.int64, shape=[None, 512, 512], name='y')
 
-logits, loss = build_model(x, y, training=config.training)
+logits, loss = build_model(x, y)
+logits_val, loss_val = build_model(x, y, training=False, reuse=True)
 
 vars_trainable = tf.trainable_variables()
 for var in vars_trainable:
@@ -29,7 +30,11 @@ tf.summary.scalar('loss', loss)
 result = tf.concat([y, tf.argmax(logits, axis=-1)], axis=2)
 result = tf.cast(12 * tf.reshape(result, [-1, 512, 1024, 1]), tf.uint8)
 
+result_val = tf.concat([y, tf.argmax(logits_val, axis=-1)], axis=2)
+result_val = tf.cast(12 * tf.reshape(result_val, [-1, 512, 1024, 1]), tf.uint8)
+
 tf.summary.image('result', result)
+tf.summary.image('result_val', result_val)
 
 sum_all = tf.summary.merge_all()
 
