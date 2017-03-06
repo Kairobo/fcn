@@ -32,7 +32,7 @@ with open(voc_dir + '/ImageSets/Segmentation/' + set_ + '.txt') as f:
         lbl = imread(voc_dir + '/SegmentationClass/' + fn + '.png', mode='RGB')
         temp = zeros((lbl.shape[0], lbl.shape[1]), dtype=uint8) + 255
 
-        for k in range(20):
+        for k in range(colors.shape[0] - 1):
             clr = int32(colors[k, :])
             e = lbl - clr[newaxis, newaxis, :]
             temp[sum(e**2, axis=2) == 0] = k

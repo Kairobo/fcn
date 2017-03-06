@@ -33,8 +33,8 @@ result = tf.cast(12 * tf.reshape(result, [-1, 512, 1024, 1]), tf.uint8)
 result_val = tf.concat([y, tf.argmax(logits_val, axis=-1)], axis=2)
 result_val = tf.cast(12 * tf.reshape(result_val, [-1, 512, 1024, 1]), tf.uint8)
 
-tf.summary.image('result', result)
-tf.summary.image('result_val', result_val)
+tf.summary.image('result', result, max_outputs=8)
+tf.summary.image('result_val', result_val, max_outputs=8)
 
 sum_all = tf.summary.merge_all()
 
