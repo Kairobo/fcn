@@ -2,13 +2,14 @@ from util import *
 import tensorflow as tf
 import time, os
 from numpy import *
+from scipy.misc import imsave
 
 tf.app.flags.DEFINE_integer('batch_size', 8, 'Number of images in each batch')
 tf.app.flags.DEFINE_integer('num_epoch', 200, 'Total number of epochs to run for training')
 tf.app.flags.DEFINE_boolean('training', True, 'If true, train the model; otherwise evaluate the existing model')
 tf.app.flags.DEFINE_float('basic_learning_rate', 1e-4, 'Initial learning rate')
-tf.app.flags.DEFINE_float('learning_rate_decay_ratio', 0.9, 'Ratio for decaying the learning rate after every epoch')
-tf.app.flags.DEFINE_float('min_learning_rate', 1e-8, 'Minimum learning rate used for training')
+tf.app.flags.DEFINE_float('learning_rate_decay_ratio', 0.95, 'Ratio for decaying the learning rate after every epoch')
+tf.app.flags.DEFINE_float('min_learning_rate', 1e-6, 'Minimum learning rate used for training')
 tf.app.flags.DEFINE_string('gpu', '0', 'GPU to be used')
 
 config = tf.app.flags.FLAGS
@@ -28,16 +29,16 @@ for var in vars_trainable:
 
 tf.summary.scalar('loss', loss)
 
-pred = tf.argmax(logits, axis=-1)
-result = tf.concat([y, pred], axis=2)
-result = tf.cast(12 * tf.reshape(result, [-1, 512, 1024, 1]), tf.uint8)
+pred_train = tf.argmax(logits, axis=-1)
+result_train = tf.concat([y, pred_train], axis=2)
+result_train = tf.cast(12 * tf.reshape(result_train, [-1, 512, 1024, 1]), tf.uint8)
 
 pred_val = tf.argmax(logits_val, axis=-1)
 result_val = tf.concat([y, pred_val], axis=2)
 result_val = tf.cast(12 * tf.reshape(result_val, [-1, 512, 1024, 1]), tf.uint8)
 
-tf.summary.image('result', result, max_outputs=8)
-tf.summary.image('result_val', result_val, max_outputs=8)
+tf.summary.image('result_train', result_train, max_outputs=config.batch_size)
+tf.summary.image('result_val', result_val, max_outputs=config.batch_size)
 
 learning_rate = tf.placeholder(tf.float32, shape=[], name='lr')
 tf.summary.scalar('learning_rate', learning_rate)
@@ -93,8 +94,10 @@ with tf.Session() as sess:
 
                 l_train, _ = sess.run([loss, train_step], feed_dict={x: img, y: lbl, learning_rate: lr})
 
+
+                if total_count % 10 == 0:
+                    writer.add_summary(sess.run(sum_all, feed_dict={x: img, y: lbl, learning_rate: lr}), total_count)
                 total_count += 1
-                writer.add_summary(sess.run(sum_all, feed_dict={x: img, y: lbl, learning_rate: lr}), total_count)
 
                 m, s = divmod(time.time() - t0, 60)
                 h, m = divmod(m, 60)
@@ -105,16 +108,33 @@ with tf.Session() as sess:
                 print('Saving checkpoint ...')
                 saver.save(sess, './checkpoint/FCN.ckpt', global_step=epoch)
     else:
-        IU = zeros([images.shape[0], num_classes])
+        IU = nan * zeros([images.shape[0], num_classes])
         for idx in range(images.shape[0]):
             img = images[idx, ...]
             lbl = labels[idx, ...]
 
-            pred = sess.run(pred_val, feed_dict={x: img})
-            for k in range(num_classes):
-                intersection = bitwise_or(lbl == k, pred == k)
-                union = bitwise_and(lbl == k, pred == k)
+            height = dot([256, 1], img[-2, -2:, 0])
+            width = dot([256, 1], img[-1, -2:, 0])
+            print('[%04d/%04d], Size: (%d, %d)' % (idx + 1, images.shape[0], height, width))
 
-                IU[idx, k] = sum(intersection) / sum(union)
+            seg_rgb = zeros((height, 3 * width, 3), dtype=uint8)
+            pred = sess.run(pred_train, feed_dict={x: reshape(img, [1, 512, 512, 3])})
 
+            seg_rgb[:, :width, :] = img[:height, :width, :]
+            lbl = lbl[:height, :width]
+            pred = pred[0, :height, :width]
+            for k, clr in enumerate(colors):
+                if k:
+                    intersection = (lbl == k) & (pred == k)
+                    union = (lbl == k) | (pred == k)
+
+                    if k < num_classes:
+                        IU[idx, k] = sum(intersection & (lbl != 255)) / sum(union & (lbl != 255))
+
+                        seg_rgb[:, width:(2 * width), :][lbl == k] = clr
+                        seg_rgb[:, (2 * width):, :][pred == k] = clr
+                    else:
+                        seg_rgb[:, width:(2 * width), :][lbl == 255] = clr
+
+            imsave('./results/%04d.png' % idx, seg_rgb)
         save('IU.npy', IU)

@@ -1,7 +1,8 @@
 __pycache__
 *.pyc
+*.npy
 checkpoint/*
 data/train/*
 data/val/*
-*test*
-*tfevents*
+results/*
+logs/*

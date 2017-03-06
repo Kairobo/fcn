@@ -53,54 +53,64 @@ def load_images(pattern):
 
 def build_model(x, y, reuse=None, training=True):
     with tf.variable_scope('FCN'):
-        conv1_1 = conv_bn_relu(x, 64, 4, 2, reuse=reuse, training=training, name='conv1_1')
-        conv1_1 = tf.layers.dropout(conv1_1, training=training, name='conv1_1/dropout')
-        conv1_2 = conv_bn_relu(conv1_1, 64, reuse=reuse, training=training, name='conv1_2')
-        maxpool1 = tf.layers.max_pooling2d(conv1_2, 2, 2, name='maxpool1')
+        # x ~ (?, 512, 512, 3)  RGB images
+        # y ~ (?, 512, 512)     Gray scale images with labels as pixel values
 
-        conv2_1 = conv_bn_relu(maxpool1, 128, reuse=reuse, training=training, name='conv2_1')
-        conv2_1 = tf.layers.dropout(conv2_1, training=training, name='conv2_1/dropout')
-        conv2_2 = conv_bn_relu(conv2_1, 128, reuse=reuse, training=training, name='conv2_2')
-        maxpool2 = tf.layers.max_pooling2d(conv2_2, 2, 2, name='maxpool2')
+        # 256
+        conv1 = conv_bn_relu(x, 64, 4, 2, reuse=reuse, training=training, name='conv1_1')
+        conv1 = conv_bn_relu(conv1, 64, reuse=reuse, training=training, name='conv1_2')
 
-        conv3_1 = conv_bn_relu(maxpool2, 256, reuse=reuse, training=training, name='conv3_1')
-        conv3_1 = tf.layers.dropout(conv3_1, training=training, name='conv3_1/dropout')
-        conv3_2 = conv_bn_relu(conv3_1, 256, reuse=reuse, training=training, name='conv3_2')
-        maxpool3 = tf.layers.max_pooling2d(conv3_2, 2, 2, name='maxpool3')
+        # 128
+        maxpool1 = tf.layers.max_pooling2d(conv1, 2, 2, name='maxpool1')
+        conv2 = conv_bn_relu(maxpool1, 128, reuse=reuse, training=training, name='conv2_1')
+        conv2 = conv_bn_relu(conv2, 128, reuse=reuse, training=training, name='conv2_2')
 
-        conv4_1 = conv_bn_relu(maxpool3, 512, reuse=reuse, training=training, name='conv4_1')
-        conv4_2 = conv_bn_relu(conv4_1, 512, reuse=reuse, training=training, name='conv4_2')
-        maxpool4 = tf.layers.max_pooling2d(conv4_2, 2, 2, name='maxpool4')
+        # 64
+        maxpool2 = tf.layers.max_pooling2d(conv2, 2, 2, name='maxpool2')
+        conv3 = conv_bn_relu(maxpool2, 256, reuse=reuse, training=training, name='conv3_1')
+        conv3 = conv_bn_relu(conv3, 256, reuse=reuse, training=training, name='conv3_2')
 
-        conv5_1 = conv_bn_relu(maxpool4, 512, reuse=reuse, training=training, name='conv5_1')
-        conv5_2 = conv_bn_relu(conv5_1, 512, reuse=reuse, training=training, name='conv5_2')
-        maxpool5 = tf.layers.max_pooling2d(conv5_2, 2, 2, name='maxpool5')
+        # 32
+        maxpool3 = tf.layers.max_pooling2d(conv3, 2, 2, name='maxpool3')
+        conv4 = conv_bn_relu(maxpool3, 512, reuse=reuse, training=training, name='conv4_1')
+        conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_2')
+        conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_3')
+        
+        # 16
+        maxpool4 = tf.layers.max_pooling2d(conv4, 2, 2, name='maxpool4')
+        conv5 = conv_bn_relu(maxpool4, 1024, reuse=reuse, training=training, name='conv5_1')
+        conv5 = conv_bn_relu(conv5, 1024, reuse=reuse, training=training, name='conv5_2')
+        conv5 = conv_bn_relu(conv5, 1024, reuse=reuse, training=training, name='conv5_3')
 
-        conv6_1 = conv_bn_relu(maxpool5, 512, reuse=reuse, training=training, name='conv6_1')
-        conv6_2 = conv_bn_relu(conv6_1, 512, reuse=reuse, training=training, name='conv6_2')
+        # 8
+        maxpool5 = tf.layers.max_pooling2d(conv5, 2, 2, name='maxpool5')
+        conv6 = conv_bn_relu(maxpool5, 2048, reuse=reuse, training=training, name='conv6_1')
+        conv6 = conv_bn_relu(conv6, 2048, reuse=reuse, training=training, name='conv6_2')
+        conv6 = conv_bn_relu(conv6, 2048, reuse=reuse, training=training, name='conv6_3')
 
-        up1 = upconv_bn_relu(conv6_2, 512, reuse=reuse, training=training, name='up1')
-        up1 = tf.concat([up1, conv5_2], axis=3, name='concat1')
-        #conv7_1 = conv_bn_relu(up1, 512, reuse=reuse, training=training, name='conv7_1')
+        # 16
+        up1 = upconv_bn_relu(conv6, 1024, reuse=reuse, training=training, name='up1')
+        up1 = tf.concat([up1, conv5], axis=3, name='concat1')
 
+        # 32
         up2 = upconv_bn_relu(up1, 512, reuse=reuse, training=training, name='up2')
-        up2 = tf.concat([up2, conv4_2], axis=3, name='concat2')
-        #conv8_1 = conv_bn_relu(up2, 512, reuse=reuse, training=training, name='conv8_1')
+        up2 = tf.concat([up2, conv4], axis=3, name='concat2')
 
+        # 64
         up3 = upconv_bn_relu(up2, 256, reuse=reuse, training=training, name='up3')
-        up3 = tf.concat([up3, conv3_2], axis=3, name='concat3')
-        #conv9_1 = conv_bn_relu(up3, 256, reuse=reuse, training=training, name='conv9_1')
+        up3 = tf.concat([up3, conv3], axis=3, name='concat3')
 
+        # 128
         up4 = upconv_bn_relu(up3, 128, reuse=reuse, training=training, name='up4')
-        up4 = tf.concat([up4, conv2_2], axis=3, name='concat4')
-        #conv10_1 = conv_bn_relu(up4, 128, reuse=reuse, training=training, name='conv10_1')
+        up4 = tf.concat([up4, conv2], axis=3, name='concat4')
 
+        # 256
         up5 = upconv_bn_relu(up4, 64, reuse=reuse, training=training, name='up5')
-        up5 = tf.concat([up5, conv1_2], axis=3, name='concat5')
-        #conv11_1 = conv_bn_relu(up5, 64, reuse=reuse, training=training, name='conv11_1')
+        up5 = tf.concat([up5, conv1], axis=3, name='concat5')
 
+        # 512
         logits = tf.layers.conv2d_transpose(up5, num_classes, 4, 2,
-                                reuse=reuse, padding='same', name='logits')
+                                    reuse=reuse, padding='same', name='logits')
 
         mask = tf.not_equal(y, 255, name='mask')
         logits_masked = tf.boolean_mask(logits, mask)
