@@ -2,7 +2,7 @@ import os
 import sys
 from scipy.misc import imread, imsave
 from numpy import *
-from util import colors
+from util import *
 
 voc_dir = sys.argv[1] # path/to/VOC201x (without the last '/')
 set_ = sys.argv[2] # either `train` or `val`
@@ -30,14 +30,14 @@ with open(voc_dir + '/ImageSets/Segmentation/' + set_ + '.txt') as f:
         imsave('./data/' + set_ + '/images/' + fn + '.png', data)
 
         lbl = imread(voc_dir + '/SegmentationClass/' + fn + '.png', mode='RGB')
-        temp = zeros((lbl.shape[0], lbl.shape[1]), dtype=uint8) + 255
+        tmp = zeros((lbl.shape[0], lbl.shape[1]), dtype=uint8) + 255
 
-        for k in range(colors.shape[0] - 1):
+        for k in range(num_classes):
             clr = int32(colors[k, :])
             e = lbl - clr[newaxis, newaxis, :]
-            temp[sum(e**2, axis=2) == 0] = k
+            tmp[sum(e**2, axis=2) == 0] = k
 
         data = zeros((512, 512), dtype=uint8) + 255
-        data[:lbl.shape[0], :lbl.shape[1]] = temp
+        data[:lbl.shape[0], :lbl.shape[1]] = tmp
 
         imsave('./data/' + set_ + '/labels/' + fn + '.png', data)
