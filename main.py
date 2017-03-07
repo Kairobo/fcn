@@ -4,7 +4,7 @@ import time, os
 from numpy import *
 from scipy.misc import imsave
 
-tf.app.flags.DEFINE_integer('batch_size', 8, 'Number of images in each batch')
+tf.app.flags.DEFINE_integer('batch_size', 4, 'Number of images in each batch')
 tf.app.flags.DEFINE_integer('num_epoch', 200, 'Total number of epochs to run for training')
 tf.app.flags.DEFINE_boolean('training', True, 'If true, train the model; otherwise evaluate the existing model')
 tf.app.flags.DEFINE_float('basic_learning_rate', 1e-4, 'Initial learning rate')
@@ -95,7 +95,7 @@ with tf.Session() as sess:
                 l_train, _ = sess.run([loss, train_step], feed_dict={x: img, y: lbl, learning_rate: lr})
 
 
-                if total_count % 10 == 0:
+                if total_count % (images.shape[0] // config.batch_size // 10) == 0:
                     writer.add_summary(sess.run(sum_all, feed_dict={x: img, y: lbl, learning_rate: lr}), total_count)
                 total_count += 1
 

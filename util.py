@@ -19,7 +19,8 @@ def conv_bn_relu(x, num_filters, ksize=4, stride=1, reuse=None, training=True, n
                 padding='same', use_bias=False, reuse=reuse,
                 name='conv2d')
         x = tf.layers.batch_normalization(x, training=training, reuse=reuse,
-                epsilon=1e-6, scale=False, name='bn')
+                momentum=0.999, epsilon=1e-6,scale=False,
+                name='bn')
         return tf.nn.relu(x, name='relu')
 
 
@@ -29,14 +30,15 @@ def upconv_bn_relu(x, num_filters, ksize=4, stride=2, reuse=None, training=True,
                 padding='same', use_bias=False, reuse=reuse,
                 name='conv2d_transpose')
         x = tf.layers.batch_normalization(x, training=training, reuse=reuse,
-                epsilon=1e-6, scale=False, name='bn')
+                momentum=0.999, epsilon=1e-6, scale=False,
+                name='bn')
         return tf.nn.relu(x, name='relu')
 
-
+'''
 def leakyReLU(x, alpha=0.1, name='lrelu'):
     with tf.variable_scope(name):
         return tf.maximum(alpha * x, x)
-
+'''
 
 def load_images(pattern):
     fn = sorted(glob(pattern))
@@ -75,7 +77,7 @@ def build_model(x, y, reuse=None, training=True):
         conv4 = conv_bn_relu(maxpool3, 512, reuse=reuse, training=training, name='conv4_1')
         conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_2')
         conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_3')
-        
+
         # 16
         maxpool4 = tf.layers.max_pooling2d(conv4, 2, 2, name='maxpool4')
         conv5 = conv_bn_relu(maxpool4, 1024, reuse=reuse, training=training, name='conv5_1')
