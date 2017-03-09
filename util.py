@@ -19,7 +19,7 @@ def conv_bn_relu(x, num_filters, ksize=4, stride=1, reuse=None, training=True, n
                 padding='same', use_bias=False, reuse=reuse,
                 name='conv2d')
         x = tf.layers.batch_normalization(x, training=training, reuse=reuse,
-                momentum=0.999, epsilon=1e-6,scale=False,
+                epsilon=1e-6,scale=False,
                 name='bn')
         return tf.nn.relu(x, name='relu')
 
@@ -30,15 +30,10 @@ def upconv_bn_relu(x, num_filters, ksize=4, stride=2, reuse=None, training=True,
                 padding='same', use_bias=False, reuse=reuse,
                 name='conv2d_transpose')
         x = tf.layers.batch_normalization(x, training=training, reuse=reuse,
-                momentum=0.999, epsilon=1e-6, scale=False,
+                epsilon=1e-6, scale=False,
                 name='bn')
         return tf.nn.relu(x, name='relu')
 
-'''
-def leakyReLU(x, alpha=0.1, name='lrelu'):
-    with tf.variable_scope(name):
-        return tf.maximum(alpha * x, x)
-'''
 
 def load_images(pattern):
     fn = sorted(glob(pattern))
@@ -61,19 +56,22 @@ def build_model(x, y, reuse=None, training=True):
         # 256
         conv1 = conv_bn_relu(x, 64, 4, 2, reuse=reuse, training=training, name='conv1_1')
         conv1 = conv_bn_relu(conv1, 64, reuse=reuse, training=training, name='conv1_2')
+        do1 = tf.layers.dropout(conv1, training=training, name='dropout1')
 
         # 128
-        maxpool1 = tf.layers.max_pooling2d(conv1, 2, 2, name='maxpool1')
+        maxpool1 = tf.layers.max_pooling2d(do1, 2, 2, name='maxpool1')
         conv2 = conv_bn_relu(maxpool1, 128, reuse=reuse, training=training, name='conv2_1')
         conv2 = conv_bn_relu(conv2, 128, reuse=reuse, training=training, name='conv2_2')
+        do2 = tf.layers.dropout(conv2, training=training, name='dropout2')
 
         # 64
-        maxpool2 = tf.layers.max_pooling2d(conv2, 2, 2, name='maxpool2')
+        maxpool2 = tf.layers.max_pooling2d(do2, 2, 2, name='maxpool2')
         conv3 = conv_bn_relu(maxpool2, 256, reuse=reuse, training=training, name='conv3_1')
         conv3 = conv_bn_relu(conv3, 256, reuse=reuse, training=training, name='conv3_2')
+        do3 = tf.layers.dropout(conv3, training=training, name='dropout3')
 
         # 32
-        maxpool3 = tf.layers.max_pooling2d(conv3, 2, 2, name='maxpool3')
+        maxpool3 = tf.layers.max_pooling2d(do3, 2, 2, name='maxpool3')
         conv4 = conv_bn_relu(maxpool3, 512, reuse=reuse, training=training, name='conv4_1')
         conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_2')
         conv4 = conv_bn_relu(conv4, 512, reuse=reuse, training=training, name='conv4_3')
