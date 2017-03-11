@@ -102,7 +102,7 @@ with tf.Session() as sess:
 
                 l_train, _ = sess.run([loss, train_step], feed_dict={x: img, y: lbl, learning_rate: lr})
 
-                if total_count % (images.shape[0] // config.batch_size // 10) == 0:
+                if total_count % (images.shape[0] // config.batch_size // 20) == 0:
                     idx = random.randint(0, images_val.shape[0] - 1, config.batch_size)
                     img_val = images_val[idx, ...]
                     lbl_val = labels_val[idx, ...]
@@ -118,7 +118,7 @@ with tf.Session() as sess:
                 print('Epoch: [%4d/%4d] [%4d/%4d], Time: [%02d:%02d:%02d], loss: %.4f'
                         % (epoch, config.num_epoch, k, images.shape[0] // config.batch_size, h, m, s, l_train))
 
-            if epoch % 10 == 0:
+            if epoch % 5 == 0:
                 print('Saving checkpoint ...')
                 saver.save(sess, './checkpoint/FCN.ckpt', global_step=epoch)
     else:
