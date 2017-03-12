@@ -3,13 +3,14 @@ import tensorflow as tf
 import time, os
 from numpy import *
 from scipy.misc import imsave
+from scipy.ndimage.filters import gaussian_filter
 
 tf.app.flags.DEFINE_integer('batch_size', 4, 'Number of images in each batch')
 tf.app.flags.DEFINE_integer('num_epoch', 100, 'Total number of epochs to run for training')
 tf.app.flags.DEFINE_boolean('training', True, 'If true, train the model; otherwise evaluate the existing model')
-tf.app.flags.DEFINE_float('basic_learning_rate', 1e-4, 'Initial learning rate')
-tf.app.flags.DEFINE_float('learning_rate_decay_ratio', 0.95, 'Ratio for decaying the learning rate after every epoch')
-tf.app.flags.DEFINE_float('min_learning_rate', 1e-6, 'Minimum learning rate used for training')
+tf.app.flags.DEFINE_float('init_learning_rate', 1e-4, 'Initial learning rate')
+tf.app.flags.DEFINE_float('learning_rate_decay', 0.95, 'Ratio for decaying the learning rate after each epoch')
+#tf.app.flags.DEFINE_float('min_learning_rate', 1e-6, 'Minimum learning rate used for training')
 tf.app.flags.DEFINE_string('gpu', '0', 'GPU to be used')
 
 config = tf.app.flags.FLAGS
@@ -31,6 +32,7 @@ for var in vars_trainable:
     num_param += prod(var.get_shape()).value
     #print(var.name, var.get_shape())
     tf.summary.histogram(var.name, var)
+
 print('\nTotal nummber of parameters = %d' % num_param)
 
 tf.summary.scalar('loss', loss)
@@ -55,13 +57,19 @@ sum_all = tf.summary.merge_all()
 ####
 
 t0 = time.time()
-print('\nLoading data from ./data/train')
-images = load_images('./data/train/images/*.png')
-labels = load_images('./data/train/labels/*.png')
+if config.training:
+    print('\nLoading data from ./data/train')
+    images = load_images('./data/train/images/*.png')
+    labels = load_images('./data/train/labels/*.png')
 
-print('\nLoading data from ./data/val')
-images_val = load_images('./data/val/images/*.png')
-labels_val = load_images('./data/val/labels/*.png')
+    print('\nLoading data from ./data/val')
+    images_val = load_images('./data/val/images/*.png')
+    labels_val = load_images('./data/val/labels/*.png')
+else:
+    print('\nLoading data from ./data/val')
+    images_val = load_images('./data/val/images/*.png')
+    labels_val = load_images('./data/val/labels/*.png')
+
 print('Finished loading in %.2f seconds.' % (time.time() - t0))
 
 train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss, var_list=vars_trainable)
@@ -90,7 +98,8 @@ with tf.Session() as sess:
         t0 = time.time()
         for epoch in range(config.num_epoch):
             random.shuffle(order)
-            lr = max(config.basic_learning_rate * config.learning_rate_decay_ratio**epoch, config.min_learning_rate)
+            lr = config.init_learning_rate * config.learning_rate_decay**epoch
+            # lr = max(lr, config.min_learning_rate)
             for k in range(images.shape[0] // config.batch_size):
                 idx = order[(k * config.batch_size):min((k + 1) * config.batch_size, 1 + images.shape[0])]
                 if random.rand() > 0.5:
@@ -122,8 +131,8 @@ with tf.Session() as sess:
                 print('Saving checkpoint ...')
                 saver.save(sess, './checkpoint/FCN.ckpt', global_step=epoch)
     else:
-        IU = nan * zeros([images.shape[0], num_classes, 2])
-        for idx in range(images.shape[0]):
+        IU = nan * zeros([images_val.shape[0], num_classes, 2])
+        for idx in range(images_val.shape[0]):
             img = images_val[idx, ...]
             lbl = labels_val[idx, ...]
 
@@ -132,11 +141,12 @@ with tf.Session() as sess:
             print('[%04d/%04d], Size: (%d, %d)' % (idx + 1, images_val.shape[0], height, width))
 
             seg_rgb = zeros((height, 3 * width, 3), dtype=uint8)
-            pred = sess.run(pred_train, feed_dict={x: reshape(img, [1, 512, 512, 3])})
+            logits = sess.run(logits_val, feed_dict={x_val: reshape(img, [1, 512, 512, 3])})
+            #logits = gaussian_filter(logits, 1)
 
             seg_rgb[:, :width, :] = img[:height, :width, :]
             lbl = lbl[:height, :width]
-            pred = pred[0, :height, :width]
+            pred = argmax(logits[0, :height, :width, :], axis=-1)
             for k, clr in enumerate(colors):
                 if k < num_classes:
                     # intersection
