@@ -104,32 +104,37 @@ def build_model(x, y, reuse=None, training=True):
 
         # 16
         pool5 = tf.layers.max_pooling2d(conv5, 2, 2, name='pool5')
-        conv6 = tf.layers.dropout(pool5, training=training, name='dropout6_1')
-        conv6 = conv_bn_relu(conv6, 512, reuse=reuse, name='conv6_1')
-        conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_2')
+        #conv6 = tf.layers.dropout(pool5, training=training, name='dropout6_1')
+        conv6 = conv_bn_relu(pool5, 512, reuse=reuse, name='conv6_1')
+        #conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_2')
         conv6 = conv_bn_relu(conv6, 512, reuse=reuse, name='conv6_2')
-        conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_3')
+        #conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_3')
         conv6 = conv_bn_relu(conv6, 512, reuse=reuse, name='conv6_3')
 
         # 32
         up1 = upconv_bn_relu(conv6, 512, reuse=reuse, name='up1')
-        up1 = tf.concat([up1, conv5], axis=3, name='concat1')
+        #up1 = tf.concat([up1, conv5], axis=3, name='concat1')
+        up1 = tf.add(up1, conv5, name='add1')
 
         # 64
         up2 = upconv_bn_relu(up1, 512, reuse=reuse, name='up2')
-        up2 = tf.concat([up2, conv4], axis=3, name='concat2')
+        #up2 = tf.concat([up2, conv4], axis=3, name='concat2')
+        up2 = tf.add(up2, conv4, name='add2')
 
         # 128
         up3 = upconv_bn_relu(up2, 256, reuse=reuse, name='up3')
-        up3 = tf.concat([up3, conv3], axis=3, name='concat3')
+        #up3 = tf.concat([up3, conv3], axis=3, name='concat3')
+        up3 = tf.add(up3, conv3, name='add3')
 
         # 256
         up4 = upconv_bn_relu(up3, 128, reuse=reuse, name='up4')
-        up4 = tf.concat([up4, conv2], axis=3, name='concat4')
+        #up4 = tf.concat([up4, conv2], axis=3, name='concat4')
+        up4 = tf.add(up4, conv2, name='add4')
 
         # 256
         up5 = upconv_bn_relu(up4, 64, reuse=reuse, name='up5')
-        up5 = tf.concat([up5, conv1], axis=3, name='concat5')
+        #up5 = tf.concat([up5, conv1], axis=3, name='concat5')
+        up5 = tf.add(up5, conv1, name='add5')
 
         # 512
         with tf.variable_scope('logits'):
