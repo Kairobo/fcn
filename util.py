@@ -49,7 +49,7 @@ def upconv_bn_relu(x, num_filters, ksize=3, stride=2, reuse=None, name='upconv')
                 padding='same', use_bias=False, reuse=reuse,
                 name='conv2d_transpose')
         x = tf.layers.batch_normalization(x, training=True, reuse=reuse,
-                epsilon=1e-6, scale=False,
+                epsilon=1e-6, #scale=False,
                 name='bn')
         return tf.nn.relu(x, name='relu')
 
