@@ -3,7 +3,7 @@ import tensorflow as tf
 import time, os
 from numpy import *
 from scipy.misc import imsave
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter1d
 
 tf.app.flags.DEFINE_integer('batch_size', 4, 'Number of images in each batch')
 tf.app.flags.DEFINE_integer('num_epoch', 100, 'Total number of epochs to run for training')
@@ -142,17 +142,21 @@ with tf.Session() as sess:
 
             seg_rgb = zeros((height, 3 * width, 3), dtype=uint8)
             logits = sess.run(logits_val, feed_dict={x_val: reshape(img, [1, 512, 512, 3])})
-            #logits = gaussian_filter(logits, 1)
+
+            logits = logits[0, :height, :width, :]
+            sigma = 4
+            logits = gaussian_filter1d(logits, sigma, axis=0)
+            logits = gaussian_filter1d(logits, sigma, axis=1)
 
             seg_rgb[:, :width, :] = img[:height, :width, :]
             lbl = lbl[:height, :width]
-            pred = argmax(logits[0, :height, :width, :], axis=-1)
+            pred = argmax(logits, axis=-1)
             for k, clr in enumerate(colors):
                 if k < num_classes:
                     # intersection
                     IU[idx, k, 0] = sum((lbl == k) & (pred == k) & (lbl != 255))
                     # union
-                    IU[idx, k, 1] = sum((lbl == k) | (pred == k) & (lbl != 255))
+                    IU[idx, k, 1] = sum(((lbl == k) | (pred == k)) & (lbl != 255))
 
                     seg_rgb[:, width:(2 * width), :][lbl == k] = clr
                     seg_rgb[:, (2 * width):, :][pred == k] = clr
