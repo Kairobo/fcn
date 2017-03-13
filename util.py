@@ -67,6 +67,7 @@ def upconv(x, num_filters, ksize=3, stride=2, reuse=None, name='upconv'):
     #with tf.variable_scope(name):
     x = tf.layers.conv2d_transpose(x, num_filters, ksize, stride,
             padding='same', reuse=reuse, #use_bias=False,
+            kernel_initializer=tf.constant_initializer(kernel),
             name=name)
         #x = tf.layers.batch_normalization(x, training=True, reuse=reuse,
         #        epsilon=1e-6, scale=False,
