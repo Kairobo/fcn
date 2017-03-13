@@ -138,10 +138,13 @@ with tf.Session() as sess:
 
             height = dot([256, 1], img[-2, -2:, 0])
             width = dot([256, 1], img[-1, -2:, 0])
-            print('[%04d/%04d], Size: (%d, %d)' % (idx + 1, images_val.shape[0], height, width))
 
             seg_rgb = zeros((height, 3 * width, 3), dtype=uint8)
+            t0 = time.time()
             logits = sess.run(logits_val, feed_dict={x_val: reshape(img, [1, 512, 512, 3])})
+            t1 = time.time()
+            print('[%04d/%04d], Size: (%d, %d), Time: %.3f'
+                    % (idx + 1, images_val.shape[0], height, width, t1 - t0))
 
             logits = logits[0, :height, :width, :]
             sigma = 4
