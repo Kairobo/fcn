@@ -15,11 +15,29 @@ num_classes = colors.shape[0] - 1
 
 vgg_weights = load('vgg16.npy', encoding='latin1').item()
 
+def get_bilinear_kernel(ksize, num_out_channels, num_in_channels):
+    f = ceil(ksize / 2)
+    c = (2 * f - 1 - f % 2) / 2 / f
+    bilinear = zeros([ksize, ksize])
+    for x in range(ksize):
+        for y in range(ksize):
+            value = (1 - abs(x / f - c)) * (1 - abs(y / f - c))
+            bilinear[x, y] = value
+    kernel = zeros([ksize, ksize, num_out_channels, num_in_channels])
+    for i in range(num_classes):
+        kernel[:, :, i, i] = bilinear
+    return kernel
+
 def conv_bn_relu_vgg(x, reuse=None, name='conv_vgg'):
+    bias = vgg_weights[name][1]
     if 'conv' in name:
         kernel = vgg_weights[name][0]
     elif name == 'fc6':
         kernel = vgg_weights[name][0].reshape([7, 7, 512, 4096])
+    elif name == 'fc7':
+        kernel = vgg_weights[name][0].reshape([1, 1, 4096, 4096])
+    elif name == 'fc8':
+        kernel = vgg_weights[name][0].reshape([1, 1, 4096, 1000])
 
     with tf.variable_scope(name):
         x = tf.layers.conv2d(x, kernel.shape[-1], kernel.shape[0],
@@ -28,6 +46,7 @@ def conv_bn_relu_vgg(x, reuse=None, name='conv_vgg'):
                 name='conv2d')
         x = tf.layers.batch_normalization(x, training=True, reuse=reuse,
                 epsilon=1e-6, scale=False,
+                beta_initializer=tf.constant_initializer(bias),
                 name='bn')
         return tf.nn.relu(x, name='relu')
 
@@ -43,15 +62,17 @@ def conv_bn_relu(x, num_filters, reuse=None, name='conv'):
         return tf.nn.relu(x, name='relu')
 
 
-def upconv_bn_relu(x, num_filters, ksize=3, stride=2, reuse=None, name='upconv'):
-    with tf.variable_scope(name):
-        x = tf.layers.conv2d_transpose(x, num_filters, ksize, stride,
-                padding='same', use_bias=False, reuse=reuse,
-                name='conv2d_transpose')
-        x = tf.layers.batch_normalization(x, training=True, reuse=reuse,
-                epsilon=1e-6, scale=False,
-                name='bn')
-        return tf.nn.relu(x, name='relu')
+def upconv(x, num_filters, ksize=3, stride=2, reuse=None, name='upconv'):
+    kernel = get_bilinear_kernel(ksize, num_filters, x.shape[-1].value)
+    #with tf.variable_scope(name):
+    x = tf.layers.conv2d_transpose(x, num_filters, ksize, stride,
+            padding='same', reuse=reuse, #use_bias=False,
+            name=name)
+        #x = tf.layers.batch_normalization(x, training=True, reuse=reuse,
+        #        epsilon=1e-6, scale=False,
+        #        name='bn')
+        #return tf.nn.relu(x, name='relu')
+    return x
 
 
 def load_images(pattern):
@@ -73,7 +94,8 @@ def build_model(x, y, reuse=None, training=True):
         # y ~ (?, 512, 512)     Gray scale images with labels as pixel values
 
         # VGG takes BGR images
-        x = x[..., ::-1] - [103.939, 116.779, 123.68]
+        r, g, b = tf.unstack(x, 3, axis=-1)
+        x =  tf.stack([b - 103.939, g - 116.779, r - 123.68], axis=-1, name='BGR')
 
         # 512
         conv1 = conv_bn_relu_vgg(x, reuse=reuse, name='conv1_1')
@@ -104,37 +126,31 @@ def build_model(x, y, reuse=None, training=True):
 
         # 16
         pool5 = tf.layers.max_pooling2d(conv5, 2, 2, name='pool5')
-        #conv6 = tf.layers.dropout(pool5, training=training, name='dropout6_1')
-        conv6 = conv_bn_relu(pool5, 512, reuse=reuse, name='conv6_1')
-        #conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_2')
-        conv6 = conv_bn_relu(conv6, 512, reuse=reuse, name='conv6_2')
-        #conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_3')
-        conv6 = conv_bn_relu(conv6, 512, reuse=reuse, name='conv6_3')
+        conv6 = conv_bn_relu_vgg(pool5, reuse=reuse, name='fc6')
+        conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_1')
+        conv6 = conv_bn_relu_vgg(conv6, reuse=reuse, name='fc7')
+        conv6 = tf.layers.dropout(conv6, training=training, name='dropout6_2')
+        conv6 = conv_bn_relu_vgg(conv6, reuse=reuse, name='fc8')
 
         # 32
-        up1 = upconv_bn_relu(conv6, 512, reuse=reuse, name='up1')
-        #up1 = tf.concat([up1, conv5], axis=3, name='concat1')
-        up1 = tf.add(up1, conv5, name='add1')
+        up1 = upconv(conv6, 512, reuse=reuse, name='up1')
+        up1 = tf.concat([up1, pool4], axis=-1, name='concat1')
 
         # 64
-        up2 = upconv_bn_relu(up1, 512, reuse=reuse, name='up2')
-        #up2 = tf.concat([up2, conv4], axis=3, name='concat2')
-        up2 = tf.add(up2, conv4, name='add2')
+        up2 = upconv(up1, 512, reuse=reuse, name='up2')
+        up2 = tf.concat([up2, pool3], axis=-1, name='concat2')
 
         # 128
-        up3 = upconv_bn_relu(up2, 256, reuse=reuse, name='up3')
-        #up3 = tf.concat([up3, conv3], axis=3, name='concat3')
-        up3 = tf.add(up3, conv3, name='add3')
+        up3 = upconv(up2, 256, reuse=reuse, name='up3')
+        up3 = tf.concat([up3, pool2], axis=-1, name='concat3')
 
         # 256
-        up4 = upconv_bn_relu(up3, 128, reuse=reuse, name='up4')
-        #up4 = tf.concat([up4, conv2], axis=3, name='concat4')
-        up4 = tf.add(up4, conv2, name='add4')
+        up4 = upconv(up3, 128, reuse=reuse, name='up4')
+        up4 = tf.concat([up4, pool1], axis=-1, name='concat4')
 
         # 256
-        up5 = upconv_bn_relu(up4, 64, reuse=reuse, name='up5')
-        #up5 = tf.concat([up5, conv1], axis=3, name='concat5')
-        up5 = tf.add(up5, conv1, name='add5')
+        up5 = upconv(up4, 64, reuse=reuse, name='up5')
+        #up5 = tf.add(up5, conv1, name='add5')
 
         # 512
         with tf.variable_scope('logits'):
