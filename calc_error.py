@@ -13,3 +13,5 @@ clf()
 ax = fig.add_subplot(1, 1, 1)
 bar(arange(result.shape[1]), mean_IU)
 ylim(0, 1)
+
+savefig('bar_IU.png', dpi=300)
